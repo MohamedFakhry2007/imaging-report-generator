@@ -4,7 +4,7 @@ import os
 from PIL import Image
 from io import BytesIO
 
-class TestImageToStoryAPI(unittest.TestCase):
+class TestImageToArabicStoryAPI(unittest.TestCase):
     def setUp(self):
         # Get the backend URL from environment variable
         self.base_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
@@ -21,32 +21,32 @@ class TestImageToStoryAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("message", response.json())
 
-    def test_generate_story_without_image(self):
-        """Test story generation fails without image"""
+    def test_generate_story_valid_image(self):
+        """Test story generation with valid image"""
+        files = {
+            'file': ('test.jpg', self.image_bytes, 'image/jpeg')
+        }
+        response = requests.post(f"{self.base_url}/api/generate-story", files=files)
+        
+        print("Story Generation Response:", response.json() if response.ok else response.text)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("story", response.json())
+        self.assertTrue(isinstance(response.json()["story"], str))
+        self.assertTrue(len(response.json()["story"]) > 0)
+
+    def test_generate_story_no_image(self):
+        """Test story generation without image"""
         response = requests.post(f"{self.base_url}/api/generate-story")
         self.assertEqual(response.status_code, 422)  # FastAPI validation error
 
-    def test_generate_story_with_invalid_image(self):
+    def test_generate_story_invalid_image(self):
         """Test story generation with invalid image data"""
-        files = {'file': ('test.jpg', b'invalid image data', 'image/jpeg')}
+        files = {
+            'file': ('test.txt', b'not an image', 'text/plain')
+        }
         response = requests.post(f"{self.base_url}/api/generate-story", files=files)
-        # Accept either 400 (ideal) or 500 (current implementation)
-        self.assertTrue(response.status_code in [400, 500])
-
-    def test_generate_story_with_valid_image(self):
-        """Test story generation with valid image"""
-        files = {'file': ('test.jpg', self.image_bytes.getvalue(), 'image/jpeg')}
-        response = requests.post(f"{self.base_url}/api/generate-story", files=files)
-        
-        # Note: This test might fail if GOOGLE_API_KEY is not set
-        # We'll check either for success or for a specific error
-        if response.status_code == 200:
-            self.assertIn("story", response.json())
-        else:
-            self.assertEqual(response.status_code, 500)
-            error_detail = response.json().get('detail', '')
-            # Accept any valid error message in Arabic
-            self.assertTrue(any(msg in error_detail for msg in ["فشل في إنشاء القصة", "حدث خطأ غير متوقع", "مفتاح API"]))
+        self.assertEqual(response.status_code, 400)
 
 if __name__ == '__main__':
     unittest.main()
