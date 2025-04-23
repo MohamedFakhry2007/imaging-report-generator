@@ -171,6 +171,10 @@ async def generate_story(file: UploadFile = File(...)):
             error_msg = str(e)
             logger.error(f"Gemini API error: {error_msg}")
             
+            # Check specifically for safety filter blocks
+            if "safety_ratings" in error_msg or "finish_reason" in error_msg:
+                return {"story": "عفواً، لم أتمكن من إنشاء قصة من هذه الصورة بسبب قيود المحتوى. يرجى تجربة صورة أخرى."}
+            
             # More specific error messages based on common API errors
             if "API key" in error_msg:
                 raise HTTPException(status_code=500, detail="فشل في إنشاء القصة: مفتاح API غير صالح")
