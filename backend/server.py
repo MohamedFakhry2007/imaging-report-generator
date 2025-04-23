@@ -72,23 +72,24 @@ async def generate_story(file: UploadFile = File(...)):
             image = Image.open(BytesIO(contents))
             logger.info(f"Image processed successfully: {image.format}, {image.size}")
             
-            # Prepare image for Gemini
+            # Ensure the image is in a supported format (JPEG/PNG)
             buffered = BytesIO()
-            image.save(buffered, format=image.format if image.format else "JPEG")
+            save_format = image.format if image.format in ['JPEG', 'PNG'] else 'JPEG'
+            image.save(buffered, format=save_format)
             img_bytes = buffered.getvalue()
+            
+            # Encode the image in base64 for the Gemini API
+            base64_encoded_image = base64.b64encode(img_bytes).decode('utf-8')
+            logger.info("Image encoded successfully in base64")
             
         except Exception as e:
             logger.error(f"Image processing error: {e}")
             raise HTTPException(status_code=400, detail="فشل في معالجة الصورة")
 
-        # Configure the Gemini model - try using a different model
-        # Available models as of March 2025 include: gemini-1.5-pro-001, gemini-1.5-flash-001, gemini-2.0-flash-001
-        try:
-            model = genai.GenerativeModel('gemini-2.0-flash-001')
-            logger.info("Using Gemini 2.0 Flash model")
-        except Exception as model_error:
-            logger.warning(f"Failed to load Gemini 2.0 Flash, trying Gemini 1.5: {model_error}")
-            model = genai.GenerativeModel('gemini-1.5-pro-001')
+        # Configure the Gemini model for multimodal input (image + text)
+        # Using a known working multimodal model as of March 2025
+        model = genai.GenerativeModel('gemini-1.5-pro-001')
+        logger.info("Using Gemini 1.5 Pro model for multimodal input")
         
         # Create system prompt with style reference
         system_prompt = f"""
@@ -110,8 +111,12 @@ async def generate_story(file: UploadFile = File(...)):
             logger.info("Starting Gemini API call")
             start_time = asyncio.get_event_loop().time()
             
+            # Prepare multimodal content parts according to latest Gemini API specs
+            image_part = {"inlineData": {"mimeType": "image/jpeg", "data": base64_encoded_image}}
+            text_part = {"text": system_prompt}
+            
             # Create a multimodal prompt with the image and system prompt
-            response = model.generate_content([system_prompt, {"mime_type": "image/jpeg", "data": img_bytes}])
+            response = model.generate_content(contents=[text_part, image_part])
             
             # Calculate and log API call latency
             latency = asyncio.get_event_loop().time() - start_time
@@ -124,9 +129,13 @@ async def generate_story(file: UploadFile = File(...)):
             error_msg = str(e)
             logger.error(f"Gemini API error: {error_msg}")
             
-            # More specific error message
+            # More specific error messages based on common API errors
             if "API key" in error_msg:
                 raise HTTPException(status_code=500, detail="فشل في إنشاء القصة: مفتاح API غير صالح")
+            elif "quota" in error_msg.lower():
+                raise HTTPException(status_code=500, detail="فشل في إنشاء القصة: تم تجاوز الحصة المسموح بها")
+            elif "blocked" in error_msg.lower() or "content" in error_msg.lower():
+                raise HTTPException(status_code=500, detail="فشل في إنشاء القصة: المحتوى محظور")
             else:
                 raise HTTPException(status_code=500, detail="فشل في إنشاء القصة")
             
