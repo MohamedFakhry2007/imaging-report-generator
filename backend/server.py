@@ -81,8 +81,14 @@ async def generate_story(file: UploadFile = File(...)):
             logger.error(f"Image processing error: {e}")
             raise HTTPException(status_code=400, detail="فشل في معالجة الصورة")
 
-        # Configure the Gemini model - ensure we use the correct model
-        model = genai.GenerativeModel('gemini-1.5-pro-001')
+        # Configure the Gemini model - try using a different model
+        # Available models as of March 2025 include: gemini-1.5-pro-001, gemini-1.5-flash-001, gemini-2.0-flash-001
+        try:
+            model = genai.GenerativeModel('gemini-2.0-flash-001')
+            logger.info("Using Gemini 2.0 Flash model")
+        except Exception as model_error:
+            logger.warning(f"Failed to load Gemini 2.0 Flash, trying Gemini 1.5: {model_error}")
+            model = genai.GenerativeModel('gemini-1.5-pro-001')
         
         # Create system prompt with style reference
         system_prompt = f"""
