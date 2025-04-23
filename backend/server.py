@@ -115,15 +115,57 @@ async def generate_story(file: UploadFile = File(...)):
             image_part = {"inline_data": {"mime_type": "image/jpeg", "data": base64_encoded_image}}
             text_part = {"text": system_prompt}
             
+            # Set safety settings to be less restrictive but still safe
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+            
             # Create a multimodal prompt with the image and system prompt
-            response = model.generate_content(contents=[text_part, image_part])
+            response = model.generate_content(
+                contents=[text_part, image_part],
+                safety_settings=safety_settings
+            )
             
             # Calculate and log API call latency
             latency = asyncio.get_event_loop().time() - start_time
             logger.info(f"Gemini API call completed in {latency:.2f} seconds")
             
-            # Return the generated story
-            return {"story": response.text}
+            # Check if the response contains blocked content
+            if hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 'SAFETY':
+                    logger.warning("Content blocked due to safety filters")
+                    raise HTTPException(status_code=400, detail="تم حظر المحتوى بسبب قواعد السلامة")
+            
+            # Check if we have text content
+            if hasattr(response, 'text'):
+                return {"story": response.text}
+            else:
+                # Try to extract text from candidates if available
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                return {"story": part.text}
+                
+                # If we still don't have text, return a fallback message
+                return {"story": "عفواً، لم أتمكن من إنشاء قصة من هذه الصورة. يرجى تجربة صورة أخرى."}
             
         except Exception as e:
             error_msg = str(e)
