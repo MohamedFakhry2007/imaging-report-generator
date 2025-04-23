@@ -112,7 +112,7 @@ async def generate_story(file: UploadFile = File(...)):
             start_time = asyncio.get_event_loop().time()
             
             # Prepare multimodal content parts according to latest Gemini API specs
-            image_part = {"inlineData": {"mimeType": "image/jpeg", "data": base64_encoded_image}}
+            image_part = {"inline_data": {"mime_type": "image/jpeg", "data": base64_encoded_image}}
             text_part = {"text": system_prompt}
             
             # Create a multimodal prompt with the image and system prompt
