@@ -115,8 +115,14 @@ async def generate_story(file: UploadFile = File(...)):
             return {"story": response.text}
             
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
-            raise HTTPException(status_code=500, detail=f"فشل في إنشاء القصة: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"Gemini API error: {error_msg}")
+            
+            # More specific error message
+            if "API key" in error_msg:
+                raise HTTPException(status_code=500, detail="فشل في إنشاء القصة: مفتاح API غير صالح")
+            else:
+                raise HTTPException(status_code=500, detail="فشل في إنشاء القصة")
             
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
