@@ -200,8 +200,59 @@ body {
 }
 
 .generate-button:disabled {
+  /* animation: pulse 1.5s infinite; */ /* Modified below */
+}
+
+/* Style Selector */
+.style-selector-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; 
+  gap: 8px;
+  width: 100%;
+  max-width: 600px; /* Match upload area width */
+  margin-bottom: 20px; /* Space before generate button */
+}
+
+.style-label {
+  font-size: 1rem;
+  color: #2c3e50;
+  text-align: right; /* RTL */
+  margin-bottom: 4px;
+}
+
+.style-select {
+  width: 100%;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #bdc3c7;
+  background-color: #fff;
+  font-family: 'Tajawal', sans-serif;
+  font-size: 1rem;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.style-select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Adjust generate-button:disabled animation */
+.generate-button.disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+  transform: none;
+  /* No animation by default when disabled */
+  animation: none; 
+}
+
+.generate-button.loading { /* Add a specific class for loading state */
   animation: pulse 1.5s infinite;
 }
+
 
 /* Footer */
 .app-footer {
@@ -245,5 +296,18 @@ body {
   
   .story-content {
     font-size: 1rem;
+  }
+
+  .style-selector-container {
+    max-width: 100%; 
+  }
+  
+  .style-label {
+    font-size: 0.9rem;
+  }
+
+  .style-select {
+    font-size: 0.9rem;
+    padding: 8px 12px;
   }
 }

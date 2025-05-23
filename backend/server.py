@@ -13,6 +13,7 @@ import google.generativeai as genai
 from pathlib import Path
 from PIL import Image
 from io import BytesIO
+from .story_styles import STORY_STYLES
 
 # /backend 
 ROOT_DIR = Path(__file__).parent
@@ -44,24 +45,35 @@ logger = logging.getLogger(__name__)
 api_key = os.environ.get('GOOGLE_API_KEY')
 genai.configure(api_key=api_key)
 
-# Load the Arabic style sample text
-try:
-    with open(ROOT_DIR / 'arabic_style_sample.txt', 'r', encoding='utf-8') as file:
-        arabic_style_sample = file.read()
-        logger.info("Successfully loaded Arabic style sample text")
-except Exception as e:
-    logger.error(f"Error loading Arabic style sample: {e}")
-    arabic_style_sample = "فشل في تحميل النص المرجعي"
-
 @app.get("/api")
 async def root():
     return {"message": "مرحبا بك في واجهة برمجة التطبيق للقصص العربية"}
 
+@app.get("/api/styles")
+async def get_styles():
+    logger.info("API endpoint /api/styles called")
+    # We only need to send the id and name to the frontend
+    styles_for_frontend = [{"id": style["id"], "name": style["name"]} for style in STORY_STYLES]
+    return JSONResponse(content=styles_for_frontend)
+
 @app.post("/api/generate-story")
-async def generate_story(file: UploadFile = File(...)):
+async def generate_story(file: UploadFile = File(...), selected_style_id: str = Form(...)):
     try:
-        logger.info(f"Received image upload: {file.filename}")
+        logger.info(f"Received image upload: {file.filename}, Selected Style ID: {selected_style_id}")
+
+        # Retrieve the selected style prompt
+        selected_style_prompt = None
+        for style in STORY_STYLES:
+            if style["id"] == selected_style_id:
+                selected_style_prompt = style["prompt"]
+                break
         
+        if selected_style_prompt is None:
+            logger.error(f"Invalid style ID received: {selected_style_id}")
+            raise HTTPException(status_code=400, detail="النمط المحدد غير صالح")
+
+        logger.info(f"Using style: {selected_style_id}")
+
         # Read and validate the image file
         contents = await file.read()
         if not contents:
@@ -93,16 +105,13 @@ async def generate_story(file: UploadFile = File(...)):
         
         # Create system prompt with style reference
         system_prompt = f"""
-        أنت كاتب قصص متميز باللغة العربية. 
-        سأقدم لك صورة، وأريد منك أن تكتب قصة قصيرة مستوحاة منها.
-        
-        فيما يلي مثال على أسلوب الكتابة الذي أريدك أن تتبعه:
-        
-        {arabic_style_sample}
-        
-        اكتب قصة جديدة مستوحاة من الصورة المرفقة، ولكن باستخدام نفس أسلوب القصة المقدمة أعلاه من حيث النبرة وبناء الجملة والمفردات والإحساس العام للسرد.
+        سأقدم لك صورة، وأريد منك أن تكتب قصة قصيرة مستوحاة منها. اتبع الإرشادات التالية للأسلوب المطلوب:
+
+        {selected_style_prompt}
+
+        اكتب قصة جديدة مستوحاة من الصورة المرفقة، ملتزماً بالإرشادات الأسلوبية المذكورة أعلاه.
         ضع نفسك في مكان راوي قصص متمرس. لا تصف الصورة فقط، بل استخدمها كمصدر إلهام لإنشاء قصة كاملة وجذابة.
-        اكتب بالعربية الفصحى المعاصرة، وتأكد من الحفاظ على التسلسل المنطقي للأحداث.
+        اكتب بالعربية الفصحى المعاصرة (ما لم يحدد الأسلوب خلاف ذلك)، وتأكد من الحفاظ على التسلسل المنطقي للأحداث.
         """
         
         # Generate content with the Gemini model

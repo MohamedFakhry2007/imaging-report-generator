@@ -1,5 +1,5 @@
 import "./App.css";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -10,6 +10,36 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
+  const [styles, setStyles] = useState([]);
+  const [selectedStyle, setSelectedStyle] = useState("general_modern_standard"); // Default style ID
+
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/styles`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setStyles(data);
+        // Optionally, validate if the default selectedStyle is in the fetched list
+        // or set to the first item if data is not empty and current selection isn't valid.
+        if (data.length > 0) {
+          const defaultStyleExists = data.some(style => style.id === selectedStyle);
+          if (!defaultStyleExists) {
+            setSelectedStyle(data[0].id); // Fallback to the first style
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch styles:", err);
+        setError("فشل في تحميل قائمة الأساليب");
+        setStyles([]); // Ensure styles list is empty
+        setSelectedStyle(''); // Clear selected style to disable button
+      }
+    };
+
+    fetchStyles();
+  }, []); // Empty dependency array means this effect runs once on mount
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -48,6 +78,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append("file", selectedImage);
+      formData.append("selected_style_id", selectedStyle); // Add selected style
 
       const response = await fetch(`${BACKEND_URL}/api/generate-story`, {
         method: "POST",
@@ -117,10 +148,28 @@ function App() {
             />
           </div>
 
+          {styles.length > 0 && (
+            <div className="style-selector-container">
+              <label htmlFor="style-select" className="style-label">اختر أسلوب القصة:</label>
+              <select 
+                id="style-select"
+                value={selectedStyle} 
+                onChange={(e) => setSelectedStyle(e.target.value)}
+                className="style-select"
+              >
+                {styles.map(style => (
+                  <option key={style.id} value={style.id}>
+                    {style.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button 
-            className={`generate-button ${!selectedImage ? 'disabled' : ''}`}
+            className={`generate-button ${(!selectedImage || !selectedStyle) && !isLoading ? 'disabled' : ''} ${isLoading ? 'loading' : ''}`}
             onClick={handleGenerateStory}
-            disabled={!selectedImage || isLoading}
+            disabled={!selectedImage || isLoading || !selectedStyle}
           >
             {isLoading ? "جاري كتابة القصة..." : "أنشئ القصة"}
           </button>
