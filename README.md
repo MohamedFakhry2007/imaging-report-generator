@@ -6,6 +6,8 @@
 
 Leveraging the multimodal capabilities of **Google Gemini**, this application bridges the gap between raw medical imaging and structured textual analysis. It automates the generation of findings for X-Rays and CT scans, enforcing standardized reporting formats (RSNA-style) while maintaining a "Human-in-the-loop" workflow to ensure clinical safety.
 
+Click the image to watch the demo:
+
 [![Watch the Demo](https://img.youtube.com/vi/4NDVZmV-ls4/maxresdefault.jpg)](https://youtu.be/4NDVZmV-ls4)
 
 ### ✨ Key Features
