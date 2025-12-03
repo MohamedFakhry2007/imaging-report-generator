@@ -4,6 +4,10 @@
 
 **MedVision Assist** is a specialized Clinical Decision Support System (CDSS) prototype designed to assist radiologists in drafting preliminary imaging reports.
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://imaging-report-generator-zg9lmrthbghzlrk2fefu48.streamlit.app)
+
+> **Try the Live Demo:** [Click here to use the app in your browser](https://imaging-report-generator-zg9lmrthbghzlrk2fefu48.streamlit.app)
+
 Leveraging the multimodal capabilities of **Google Gemini**, this application bridges the gap between raw medical imaging and structured textual analysis. It automates the generation of findings for X-Rays and CT scans, enforcing standardized reporting formats (RSNA-style) while maintaining a "Human-in-the-loop" workflow to ensure clinical safety.
 
 Click the image to watch the demo:
