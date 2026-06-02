@@ -1,0 +1,5 @@
+# Dev-only: needed solely to regenerate models/chexnet.onnx via tools/export_onnx.py.
+# These are heavy (PyTorch) and are NOT installed in production — the deployed app
+# runs the exported ONNX model with onnxruntime alone (see requirements.txt).
+torch
+torchxrayvision

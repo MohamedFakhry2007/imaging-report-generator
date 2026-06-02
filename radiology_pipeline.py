@@ -1,3 +1,5 @@
+import json
+
 from PIL import Image
 from vlm_guard import Analysis, BaseRule, GuardrailEngine, RuleResult, VLMGuardPipeline
 from vlm_guard.image.enhance import EnhancementStrategy, ImageEnhancer
@@ -67,6 +69,17 @@ def parse_to_analysis(raw: dict) -> Analysis:
             "severity_list":    [f["severity"] for f in per_structure],
         },
     )
+
+
+def parse_raw(raw: str) -> tuple[Analysis, str]:
+    """Adapter matching VLMGuardPipeline's parser_fn contract.
+
+    The pipeline hands the parser the model's raw output *string* and unpacks a
+    ``(Analysis, raw_output)`` tuple (see vlm_guard.core.pipeline.run). It JSON-
+    decodes the string and delegates the dict→Analysis mapping to
+    ``parse_to_analysis`` so that function stays independently unit-testable.
+    """
+    return parse_to_analysis(json.loads(raw)), raw
 
 
 # ── Rules ────────────────────────────────────────────────────────────────────
@@ -161,7 +174,26 @@ def build_pipeline(model) -> VLMGuardPipeline:
 
     return VLMGuardPipeline(
         model_fn=gemini_model_fn,
-        parser_fn=parse_to_analysis,
+        parser_fn=parse_raw,
+        guardrail_engine=engine,
+        enhancer_fn=ImageEnhancer(EnhancementStrategy.HIGH_CONTRAST),
+    )
+
+
+def build_local_pipeline() -> VLMGuardPipeline:
+    """Create a VLMGuardPipeline backed by the local ONNX chest-X-ray model.
+
+    Mirrors ``build_pipeline`` but needs no API key or network: a quantised
+    TorchXRayVision DenseNet runs on CPU via onnxruntime and emits the same
+    RADIOLOGY_JSON_SCHEMA JSON, so the engine, parser and enhancer are reused
+    unchanged. local_backend is imported lazily so this module stays importable
+    (and offline tests keep working) even when onnxruntime is not installed.
+    """
+    from local_backend import local_model_fn
+
+    return VLMGuardPipeline(
+        model_fn=local_model_fn,
+        parser_fn=parse_raw,
         guardrail_engine=engine,
         enhancer_fn=ImageEnhancer(EnhancementStrategy.HIGH_CONTRAST),
     )

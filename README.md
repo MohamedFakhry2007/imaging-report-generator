@@ -8,7 +8,12 @@
 
 > **Try the Live Demo:** [Click here to use the app in your browser](https://imaging-report-generator-zg9lmrthbghzlrk2fefu48.streamlit.app)
 
-Leveraging the multimodal capabilities of **Google Gemini**, this application bridges the gap between raw medical imaging and structured textual analysis. It automates the generation of findings for X-Rays and CT scans, enforcing standardized reporting formats (RSNA-style) while maintaining a "Human-in-the-loop" workflow to ensure clinical safety.
+The app ships as a **Streamlit** application with two interchangeable analysis backends, selectable from the sidebar:
+
+  * **Gemini (cloud)** — Google's multimodal `gemini-2.0-flash`; handles any modality, needs an API key.
+  * **Local CXR (CPU)** — a ~28 MB [TorchXRayVision](https://github.com/mlmed/torchxrayvision) classifier exported to ONNX. Runs on cheap CPUs with **no API key and no network**, fits the Streamlit Cloud free tier, but is **chest-X-ray only**.
+
+Either way, output is validated and guard-railed by [vlm-guard](https://github.com/MohamedFakhry2007/vlm-guard) into a structured, schema-checked report, with a "Human-in-the-loop" workflow for clinical safety.
 
 Click the image to watch the demo:
 
@@ -44,136 +49,126 @@ Click the image to watch the demo:
 
 ### 🛠️ Technical Architecture
 
-#### Backend
+  * **Python 3.9+** with **Streamlit** for the UI (`streamlit_app.py`).
+  * **vlm-guard:** schema validation + guardrail rules (non-medical block, low-confidence flag, severity-consistency correction) in `radiology_pipeline.py`.
+  * **Backend A — Gemini:** `google-generativeai` driving `gemini-2.0-flash` with a constrained JSON response schema.
+  * **Backend B — Local CXR:** `TorchXRayVision` DenseNet exported to ONNX (`tools/export_onnx.py`), run on CPU via **onnxruntime** + **numpy** in `local_backend.py`. No PyTorch at run time.
+  * **Pillow (PIL):** image preprocessing and the `looks_like_xray` gate.
 
-  * **Python 3.9+**
-  * **FastAPI:** High-performance async API framework.
-  * **Google Generative AI:** Gemini (Multimodal) via API.
-  * **Pillow (PIL):** Image preprocessing and validation.
-  * **Security:** Environment-based configuration, CORS protection, and input sanitization.
-
-#### Frontend
-
-  * **React.js 18**
-  * **Tailwind CSS:** Utility-first styling for a clean, medical-grade UI.
-  * **Fetch API:** Asynchronous communication with the inference engine.
+> **Legacy full-stack:** a FastAPI + React.js version lives in `backend/` and `frontend/`. It is no longer the primary entry point — the Streamlit app above is what is deployed and maintained.
 
 -----
 
 ### 🚀 Quick Start
 
+This runs the Streamlit app locally. You only need an API key if you want to use the **Gemini** backend — the **Local CXR** backend runs offline on CPU.
+
 #### Prerequisites
 
   * **Python 3.9+**
-  * **Node.js 18+** (LTS Recommended)
-  * **Google AI Studio API Key** (Get one [here](https://aistudio.google.com/))
+  * *(Gemini backend only)* a **Google AI Studio API Key** — get one [here](https://aistudio.google.com/).
 
-#### 1\. Clone the Repository
+#### 1. Clone and install
 
 ```bash
 git clone https://github.com/MohamedFakhry2007/imaging-report-generator.git
-```
+cd imaging-report-generator
 
-#### 2\. Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
+# Create + activate a virtual environment
 python -m venv venv
-
-# Activate virtual environment
 # Windows (PowerShell):
-.\venv\Scripts\Activate
-# Mac/Linux:
+.\venv\Scripts\Activate.ps1
+# macOS/Linux:
 source venv/bin/activate
 
-# Install dependencies
+# Install runtime dependencies (Streamlit, vlm-guard, onnxruntime, numpy, Pillow)
 pip install -r requirements.txt
-
-# Create .env file
-echo "GOOGLE_API_KEY=your_actual_api_key_here" > .env
 ```
 
-#### 3\. Frontend Setup
-
-Open a **new terminal** window and navigate to the frontend folder.
+#### 2. Run the app
 
 ```bash
-cd frontend
-
-# Install Node dependencies
-npm install
-
-# Create .env file for API connection
-echo "REACT_APP_BACKEND_URL=http://localhost:8000" > .env
+streamlit run streamlit_app.py
 ```
 
-#### 4\. Run the Application
+This opens **`http://localhost:8501`** in your browser. Pick a backend from the **sidebar** — then follow the matching setup below.
 
-**Terminal 1 (Backend):**
+#### 3a. Using the Gemini backend (cloud)
+
+Provide your API key one of two ways, then select **"Gemini (cloud)"** in the sidebar:
 
 ```bash
-# Ensure venv is active
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+# Option 1 — environment variable (PowerShell)
+$env:GOOGLE_API_KEY = "your_actual_api_key_here"
+streamlit run streamlit_app.py
 ```
 
-**Terminal 2 (Frontend):**
+```toml
+# Option 2 — .streamlit/secrets.toml (persists across runs)
+GOOGLE_API_KEY = "your_actual_api_key_here"
+```
+
+#### 3b. Using the Local CXR backend (CPU, no API key)
+
+Select **"Local CXR (CPU)"** in the sidebar. This needs the ONNX model at `models/chexnet.onnx`. If that file isn't already present, generate it **once**:
 
 ```bash
-npm start
+# Heavy, dev-only deps (PyTorch + torchxrayvision) — NOT needed to run the app
+pip install -r requirements-export.txt
+python tools/export_onnx.py        # downloads weights, writes models/chexnet.onnx (~28 MB)
 ```
 
-Visit **`http://localhost:3000`** to access the application.
+After the model exists, the app runs it with onnxruntime alone — no PyTorch, no network.
 
 -----
 
 ### 📖 Usage Guide
 
-1.  **Upload:** Drag a Chest X-Ray or CT slice (JPG/PNG) into the drop zone.
-2.  **Analyze:** Click **"Generate Preliminary Report"**.
-3.  **Review:** The AI will generate a structured report on the right panel within 3-5 seconds.
-4.  **Reset:** Click "Remove Scan" to clear the session and start over.
+1.  **Choose a backend:** In the sidebar, pick **Gemini (cloud)** or **Local CXR (CPU)**.
+2.  **Upload:** Drag a Chest X-Ray or CT slice (JPG/PNG) into the drop zone.
+3.  **Analyze:** Click **"Generate Preliminary Report"**.
+4.  **Review:** A structured, guard-railed report appears in the right panel. Non-chest-X-ray uploads on the Local backend are flagged as unsupported rather than analysed.
 
 -----
 
 ### 📋 Project Structure
 
 ```text
-MedVision-Assist/
-├── backend/                # Python FastAPI Server
-│   ├── server.py           # Main application entry point
-│   ├── requirements.txt    # Python dependencies
-│   ├── .env                # API Keys (Not tracked in git)
-│   └── venv/               # Virtual Environment
-├── frontend/               # React Application
-│   ├── public/             # Static assets
-│   ├── src/
-│   │   ├── App.js          # Main UI Logic
-│   │   ├── App.css         # Component styles
-│   │   └── index.js        # React DOM entry
-│   ├── package.json        # Node dependencies
-│   ├── tailwind.config.js  # CSS Configuration
-│   └── .env                # Frontend config
-└── README.md               # Documentation
+imaging-report-generator/
+├── streamlit_app.py          # ▶ Main app entry point (run with: streamlit run)
+├── radiology_pipeline.py     # vlm-guard pipeline: schema, rules, parser, backends
+├── local_backend.py          # Local CPU chest-X-ray backend (ONNX inference)
+├── requirements.txt          # Runtime deps (Streamlit, vlm-guard, onnxruntime, numpy)
+├── requirements-export.txt   # Dev-only deps for the ONNX export (PyTorch)
+├── models/
+│   └── chexnet.onnx          # Exported classifier (~28 MB; generated by the script)
+├── tools/
+│   └── export_onnx.py        # One-time TorchXRayVision → ONNX export
+├── tests/                    # Offline pytest suite (no API key / model required)
+├── backend/                  # Legacy FastAPI server (not the primary entry point)
+├── frontend/                 # Legacy React UI (not the primary entry point)
+└── README.md                 # Documentation
 ```
 
 -----
 
 ### 🐛 Troubleshooting
 
-**"FastAPI/Uvicorn not found"**
+**"streamlit: command not found"**
 
-  * Ensure you activated the virtual environment (`.\venv\Scripts\Activate`) before running the server.
+  * Ensure the virtual environment is active (`.\venv\Scripts\Activate.ps1`) and you ran `pip install -r requirements.txt`. You can also use `python -m streamlit run streamlit_app.py`.
 
-**"npm command not found"**
+**"API Key missing" (Gemini backend)**
 
-  * Ensure Node.js is installed and added to your system PATH.
-  * On Windows PowerShell, you may need to run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
+  * Set `GOOGLE_API_KEY` as an environment variable or in `.streamlit/secrets.toml`. On Streamlit Cloud, add it under **App → Settings → Secrets**.
 
-**"GoogleGenerativeAI Error"**
+**"Local CXR model not found" / `models/chexnet.onnx` missing**
 
-  * Check your `backend/.env` file. Ensure `GOOGLE_API_KEY` is pasted correctly without quotes or spaces.
+  * Generate it once: `pip install -r requirements-export.txt` then `python tools/export_onnx.py`.
+
+**PowerShell blocks the activate script**
+
+  * Run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`, then activate again.
 
 -----
 
