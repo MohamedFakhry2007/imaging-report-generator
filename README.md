@@ -55,8 +55,6 @@ Click the image to watch the demo:
   * **Backend B — Local CXR:** `TorchXRayVision` DenseNet exported to ONNX (`tools/export_onnx.py`), run on CPU via **onnxruntime** + **numpy** in `local_backend.py`. No PyTorch at run time.
   * **Pillow (PIL):** image preprocessing and the `looks_like_xray` gate.
 
-> **Legacy full-stack:** a FastAPI + React.js version lives in `backend/` and `frontend/`. It is no longer the primary entry point — the Streamlit app above is what is deployed and maintained.
-
 -----
 
 ### 🚀 Quick Start
@@ -145,8 +143,6 @@ imaging-report-generator/
 ├── tools/
 │   └── export_onnx.py        # One-time TorchXRayVision → ONNX export
 ├── tests/                    # Offline pytest suite (no API key / model required)
-├── backend/                  # Legacy FastAPI server (not the primary entry point)
-├── frontend/                 # Legacy React UI (not the primary entry point)
 └── README.md                 # Documentation
 ```
 

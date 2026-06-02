@@ -46,3 +46,6 @@ agenthub/agents/youtube/db
 venv/
 .venv/
 __pycache__/
+
+# Local dev tooling (not part of the project)
+CLAUDE.md
